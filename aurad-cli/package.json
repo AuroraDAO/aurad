@@ -26,7 +26,8 @@
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "rxjs": "^6.3.3",
-    "web3": "^1.0.0-beta.37"
+    "web3": "^1.0.0-beta.37",
+    "nodemailer": "^5"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",

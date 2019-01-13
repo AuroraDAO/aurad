@@ -19,5 +19,12 @@ module.exports = {
     
     Once we verify ownership of your cold wallet, AuraD will generate a local hot wallet for you.
   `,
-  WALLET_PROMPT: 'Cold wallet address'
+  WALLET_PROMPT: 'Cold wallet address',
+
+  TESTMAIL_SUBJECT: 'AuraD Testmail',
+  TESTMAIL_CONTENT: `
+    This Email was generated and sent by the AuraD node.\n
+    If you can read this your Email-Configuration is working correctly.
+  `
+
 }
