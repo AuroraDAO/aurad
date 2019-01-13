@@ -22,9 +22,6 @@ module.exports = {
   WALLET_PROMPT: 'Cold wallet address',
 
   TESTMAIL_SUBJECT: 'AuraD Testmail',
-  TESTMAIL_CONTENT: `
-    This Email was generated and sent by the AuraD node.\n
-    If you can read this your Email-Configuration is working correctly.
-  `
+  TESTMAIL_CONTENT: 'This Email was generated and sent by the AuraD node. If you can read this your Email-Configuration is working correctly.'
 
 }

@@ -47,8 +47,44 @@ const buildServer = async () => {
 const routes = new Routes(app, db);
 app.use(compression());
 
+let hasMail;
+let mailService;
+let mailAddress;
+let mailPassword;
+
+let wasOnline = false;
+
+const sendOfflineNotificationMail = () => {
+
+  if(!hasMail)
+    return;
+
+  const transport = nodemailer.createTransport({
+      service: mailService,
+      auth: {
+          user: mailAddress,
+          pass: mailPassword
+      }
+  });
+
+  const mailOptions = {
+    from: "AuraD <" + address + ">",
+    to: address,
+    subject: "AuraD Staking Status Notification",
+    html: "Your aura node stopped staking."
+  }
+
+  transport.sendMail(mailOptions, function(error, response) {
+    if(error) {
+      console.log(`    ${chalk.red('ERROR')}: Could not send notification email. Please check your emaial configuration. ${error}`);
+    }
+  });   
+}
+
 const keepalive = async () => {
   try {
+    let isOnline = false;
+
     if (coldWallet) {
       const timestamp = Date.now();
 
@@ -74,6 +110,7 @@ const keepalive = async () => {
       
       if (response.statusCode === 200) {
         console.log(`STAKING ONLINE: ${message}`);
+        isOnline = true;
       } else {
         console.log(`STAKING OFFLINE: ${message}`);
       }
@@ -91,6 +128,12 @@ const keepalive = async () => {
     console.log(`STAKING OFFLINE`);
     console.log(e);
   }
+
+  if(wasOnline && !isOnline) {
+    sendOfflineNotificationMail();
+  }
+
+  wasOnline = isOnline;
 };
 
 const loadWallet = async () => {
@@ -100,6 +143,17 @@ const loadWallet = async () => {
     const hotWalletEncrypted = settings.hotWallet;
     account = await web3.eth.accounts.decrypt(hotWalletEncrypted, settings.token);
     process.env.PASSPHRASE = '';
+
+    if (Object.values(obj).indexOf('hasMail') > -1) {
+      hasMail = settings.hasMail;
+      mailService = settings.mailService;
+      mailAddress = settings.mailAddress;
+      mailPassword = settings.mailPassword;
+    } else {
+      hasMail = false;
+    }
+
+    
   } catch (e) {
     console.log('error loading settings.json, wrong passphrase?');
   }
