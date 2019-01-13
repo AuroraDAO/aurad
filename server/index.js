@@ -59,7 +59,7 @@ const sendOfflineNotificationMail = () => {
 
   if(!hasMail)
   {
-    console.log("Not sending notification mail because no mail configuration exists.")
+    console.log("Not sending notification mail because no mail configuration exists.");
     return;
   }
 
@@ -86,9 +86,9 @@ const sendOfflineNotificationMail = () => {
 }
 
 const keepalive = async () => {
-  try {
-    let isOnline = false;
+  let isOnline = false;
 
+  try {
     if (coldWallet) {
       const timestamp = Date.now();
 
@@ -134,7 +134,13 @@ const keepalive = async () => {
   }
 
   if(wasOnline && !isOnline) {
-    sendOfflineNotificationMail();
+    try {
+      console.log("Staking went offline. Sending notification mail.");
+      sendOfflineNotificationMail();
+    } catch(err) {
+      console.log("Could not send notification mail: " + err);
+    }
+    
   }
 
   wasOnline = isOnline;
