@@ -58,7 +58,10 @@ let wasOnline = false;
 const sendOfflineNotificationMail = () => {
 
   if(!hasMail)
+  {
+    console.log("Not sending notification mail because no mail configuration exists.")
     return;
+  }
 
   const transport = nodemailer.createTransport({
       service: mailService,
@@ -77,7 +80,7 @@ const sendOfflineNotificationMail = () => {
 
   transport.sendMail(mailOptions, function(error, response) {
     if(error) {
-      console.log(`    ${chalk.red('ERROR')}: Could not send notification email. Please check your emaial configuration. ${error}`);
+      console.log(`    ${chalk.red('ERROR')}: Could not send notification email. Please check your email configuration. ${error}`);
     }
   });   
 }
@@ -145,7 +148,7 @@ const loadWallet = async () => {
     account = await web3.eth.accounts.decrypt(hotWalletEncrypted, settings.token);
     process.env.PASSPHRASE = '';
 
-    if (Object.values(obj).indexOf('hasMail') > -1) {
+    if (Object.values(settings).indexOf('hasMail') > -1) {
       hasMail = settings.hasMail;
       mailService = settings.mailService;
       mailAddress = settings.mailAddress;
