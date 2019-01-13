@@ -17,6 +17,7 @@ import { IDEX_FIRST_BLOCK } from './constants';
 const fs = require('fs').promises;
 
 const AURAD_VERSION = require('../package.json').version;
+const nodemailer = require("nodemailer");
 
 const db = new Db();
 const app = express();
