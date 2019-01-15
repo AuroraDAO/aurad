@@ -24,7 +24,8 @@ Add your user to the sudoers file and try again: `usermod -aG sudo <user>`. If y
 Run `sudo usermod -aG docker ${USER}`, **do not** replace anything in that command, run it as-is. Then **logout** and **login** again.
 
 ### "Command failed: docker-compose -f  ..."
-Install `docker-compose` by running `sudo apt install docker-compose`. 
+Run `sudo usermod -aG docker ${USER}`, **do not** replace anything in that command, run it as-is. Then **logout** and **login** again.
+
 	
 ## Node maintenance
 
