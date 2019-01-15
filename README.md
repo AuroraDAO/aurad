@@ -198,7 +198,7 @@ aura start --rpc <RPC endpoint URL including port>
 
 ## Getting Help and Reporting Issues
 
-For questions about getting started and help if you're stuck, please [reach out to our team on Discord](https://discord.gg/tQa9CAB). 
+For questions about getting started and help if you're stuck, please have a look at the [FAQ](FAQ.md) or [reach out to our team on Discord](https://discord.gg/tQa9CAB). 
 
 If you believe you have identified a bug in AuraD, please [file an issue](https://github.com/auroradao/aurad/issues).
 
