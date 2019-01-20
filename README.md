@@ -91,11 +91,17 @@ The output should look similar to:
    CGroup: /system.slice/docker.service
            └─4076 /usr/bin/dockerd -H unix://
 ```
+Push CNTRL+C(Control and C) to exit the Docker service informaiton. 
+
 8. Add your user to the `docker` group to avoid permissions issues
 ```
 sudo usermod -aG docker ${USER}
 ```
-9. Log out and log back in and `docker` [commands](https://docs.docker.com/) will be available from the prompt
+9. Log out
+```
+logout
+```
+and log back in and `docker` [commands](https://docs.docker.com/) will be available from the prompt
 
 ### Install Docker Compose
 
@@ -114,7 +120,11 @@ sudo apt install build-essential python
 ```
 curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh | bash
 ```
-3. Log out and log back in and `nvm` [commands](https://github.com/creationix/nvm#usage) will be available from the prompt
+3. Log out
+```
+logout
+```
+and log back in and `nvm` [commands](https://github.com/creationix/nvm#usage) will be available from the prompt
 4. Install Node.js
 ```
 nvm install 10.15
@@ -165,6 +175,7 @@ Logs are the best source of information to understand what's happening with Aura
 ```
 docker logs -f docker_aurad_1
 ```
+Push CNTRL+C(Control and C) to exit the Docker service informaiton. 
 
 #### Stopping AuraD
 
