@@ -175,7 +175,7 @@ Logs are the best source of information to understand what's happening with Aura
 ```
 docker logs -f docker_aurad_1
 ```
-Push CNTRL+C(Control and C) to exit the Docker service informaiton. 
+Push CNTRL+C(Control and C) to exit the Node Log service informaiton. 
 
 #### Stopping AuraD
 
