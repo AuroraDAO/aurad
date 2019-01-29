@@ -8,6 +8,11 @@ services:
             - type: bind
               source: ${HOME}/.aurad/eth
               target: /eth
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "1m"
+            max-file: "5"
         command: ["--light", "--on-demand-retry-count=100", "--jsonrpc-interface=all", "--base-path", "/eth"]
         ports:
             - "8545:8545"
@@ -23,6 +28,11 @@ services:
             - type: bind
               source: ${HOME}/.aurad/db
               target: /var/lib/mysql
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "1m"
+            max-file: "5"
         stop_signal: SIGINT
         stop_grace_period: 20s
         ports:
@@ -38,6 +48,11 @@ services:
           - type: bind
             source: ${HOME}/.aurad/ipc
             target: /usr/aurad/ipc
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "10m"
+            max-file: "5"
         stop_signal: SIGINT
         stop_grace_period: 20s
         command: ["start", "pm2.config.js", "--no-daemon", "--only", "worker", "--kill-timeout", "5000"]
