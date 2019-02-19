@@ -37,10 +37,22 @@ sudo mv aura.service /etc/systemd/system/
 #########################################
 # 2. create systemd start up script.
 #########################################
+aura_start_option=""
+read -p "Using https://infura.io? (y/n): " infuraoption
+if [ "$infuraoption" == "y" ]; then
+  read -p "Enter infura.io endpoint: " infuraurl
+  aura_start_option="--rpc $infuraurl"
+  monitor_services="docker_aurad_1\|docker_mysql_1"
+  monitor_services_count=2
+else
+  monitor_services="docker_aurad_1\|docker_parity_1\|docker_mysql_1"
+  monitor_services_count=3
+fi
+
 cat > aura-start.sh << EOF
 #!/bin/bash
 source /home/$username/.nvm/nvm.sh
-aura start
+aura start $aura_start_option
 sysminutes=\$((\$(date +"%-M")))
 interval=1
 off_restart=3
@@ -57,7 +69,7 @@ mail_to="Your@email.com"
 while :
 do
   sysminutes=\$((\$(date +"%-M")))
-  if [[ \$(docker ps --format "{{.Image}}"  --filter status=running | grep -c "auroradao\|parity\|mysql") -lt 3 ]]; then
+  if [[ \$(docker ps --format "{{.Names}}"  --filter status=running | grep -c "$monitor_services") -lt $monitor_services_count ]]; then
     echo "container not running.."
     exit 1
   else
@@ -72,14 +84,14 @@ do
             echo "Restarting aura..."
             off_count=0
             off_count_cool=\$off_cool
-            aura restart
+            aura stop
+            aura start $aura_start_option
           fi
         else
-          off_count_cool=\$((off_count_cool - 1)) 
-          echo "staking offline. Restart cooling period \$((off_cool - off_count_cool)) / \$off_cool."
+          echo "staking offline."
         fi
         if [ \$sendmail -eq 1 ]; then
-          echo \$mail_message | mail -s \$mail_message \$mail_to
+          echo "\$mail_message" | mail -s "\$mail_subject" "\$mail_to"
         fi
       else
         if [ \$off_count -ge 1 ] && [[ \$(aura status | grep "Staking: online" -c) -eq 1 ]]; then
@@ -87,6 +99,12 @@ do
         fi
         off_count=0
       fi
+
+      if [ \$off_count_cool -ge 1 ]; then
+        off_count_cool=\$((off_count_cool - 1)) 
+        echo "Restart cooling period \$((off_cool - off_count_cool)) / \$off_cool."
+      fi
+
     fi
   fi
   sleep 30;
@@ -111,4 +129,3 @@ sudo chmod +x aura-stop.sh
 #########################################
 sudo systemctl daemon-reload
 sudo systemctl enable aura.service
-
