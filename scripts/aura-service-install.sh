@@ -51,6 +51,30 @@ fi
 
 cat > aura-start.sh << EOF
 #!/bin/bash
+
+parseEthBlockNumber()
+{
+  blocknum=\$((16#\$(echo \${1:1:-1} | cut -d '"' -f10 | sed 's/0x//g')))
+}
+
+checkEthBlockNumber()
+{
+  jresult=\$(curl -s "https://api.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey=YourApiKeyToken")
+  if [ \$? -ne 0 ]; then
+    return 1
+  fi
+  parseEthBlockNumber \$jresult
+  if [ \$? -ne 0 ]; then
+    return 2
+  fi
+  return 0
+}
+
+checkAuradProcessingBlock()
+{
+  processingblock=\$(aura logs -n aurad | grep 'Processing blocks' | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
+}
+
 source /home/$username/.nvm/nvm.sh
 aura start $aura_start_option
 sysminutes=\$((\$(date +"%-M")))
@@ -65,6 +89,24 @@ sendmail=0
 mail_subject="AURA STAKING OFFLINE."
 mail_message="AURA STAKING OFFLINE."
 mail_to="Your@email.com"
+
+##wait sync block differences less than 6 blocks
+while :
+do
+  checkEthBlockNumber
+  if [ \$? -ne 0 ]; then
+    echo "error"
+  else
+    checkAuradProcessingBlock
+    if [ ! -z "\$processingblock" ]; then
+      echo "Waiting block sync (\$processingblock/\$blocknum)"
+      if [[ \$((blocknum - processingblock)) -lt 6 ]]; then
+        break
+      fi
+    fi
+  fi
+  sleep 20
+done
 
 while :
 do
