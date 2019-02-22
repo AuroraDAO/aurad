@@ -51,6 +51,34 @@ fi
 
 cat > aura-start.sh << EOF
 #!/bin/bash
+source /home/$username/.nvm/nvm.sh
+
+initConfiguration()
+{
+  #check interval
+  interval=1
+  #staking offline count before restart aurad
+  off_restart=3
+  #staking offline cooling period after restart aurad
+  off_cool=10
+  #send mail on staking offline option
+  sendmail=0
+  #send mail on staking offline mail options
+  mail_subject="AURA STAKING OFFLINE."
+  mail_message="AURA STAKING OFFLINE."
+  mail_to="Your@email.com"
+  #aurad update notification option
+  update_notify=0
+}
+
+initVariables()
+{
+  sysminutes=\$((\$(date +"%-M")))
+  off_count=0
+  off_count_cool=0
+  lastminutes=-1
+  last_pkg_version=""
+}
 
 parseEthBlockNumber()
 {
@@ -75,42 +103,57 @@ checkAuradProcessingBlock()
   processingblock=\$(aura logs -n aurad | grep 'Processing blocks' | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
 }
 
-source /home/$username/.nvm/nvm.sh
-aura start $aura_start_option
-sysminutes=\$((\$(date +"%-M")))
-interval=1
-off_restart=3
-off_cool=10
-off_count=0
-off_count_cool=0
-lastminutes=-1
-sendmail=0
-
-mail_subject="AURA STAKING OFFLINE."
-mail_message="AURA STAKING OFFLINE."
-mail_to="Your@email.com"
-
-##wait sync block differences less than 6 blocks
-while :
-do
-  checkEthBlockNumber
-  if [ \$? -ne 0 ]; then
-    echo "error"
-  else
-    checkAuradProcessingBlock
-    if [ ! -z "\$processingblock" ]; then
-      echo "Waiting block sync (\$processingblock/\$blocknum)"
-      if [[ \$((blocknum - processingblock)) -lt 6 ]]; then
-        break
+waitAuradBlockSync()
+{
+  lastblocknum=0
+  while :
+  do
+    checkEthBlockNumber
+    if [ \$? -eq 0 ]; then
+      checkAuradProcessingBlock
+      if [ ! -z "\$processingblock" ]; then
+        echo "Waiting block sync (\$processingblock/\$blocknum)"
+        if [[ \$((blocknum - processingblock)) -lt 6 ]]; then
+          break
+        fi
       fi
     fi
+    if [ \$lastblocknum -eq \$processingblock ]; then
+      echo "Restarting aurad cointainer."
+      docker restart docker_aurad_1
+    fi
+    lastblocknum=\$processingblock
+    sleep 20
+  done
+}
+
+checkAuradPackageVersion()
+{
+  pkg_version=\$(npm dist-tag ls @auroradao/aurad-cli | cut -d ' ' -f2)
+  if [ ! -z "\$last_pkg_version" ] && [ "\$last_pkg_version" != "\$pkg_version" ]; then
+    echo "New aurad package available (\$pkg_version)."
+    if [ $update_notify -eq 1 ]; then
+      echo "Software update version: \$pkg_version" | mail -s "Software update" "\$mail_to"
+    fi
   fi
-  sleep 20
-done
+  last_pkg_version=\$pkg_version
+}
+
+initConfiguration
+checkAuradPackageVersion
+aura start $aura_start_option
+initVariables
+##wait sync block differences less than 6 blocks
+waitAuradBlockSync
 
 while :
 do
   sysminutes=\$((\$(date +"%-M")))
+  
+  if [ \$((\$sysminutes % 20)) -eq 0 ]; then
+    checkAuradPackageVersion
+  fi
+  
   if [[ \$(docker ps --format "{{.Names}}"  --filter status=running | grep -c "$monitor_services") -lt $monitor_services_count ]]; then
     echo "container not running.."
     exit 1
