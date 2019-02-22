@@ -132,7 +132,7 @@ checkAuradPackageVersion()
   pkg_version=\$(npm dist-tag ls @auroradao/aurad-cli | cut -d ' ' -f2)
   if [ ! -z "\$last_pkg_version" ] && [ "\$last_pkg_version" != "\$pkg_version" ]; then
     echo "New aurad package available (\$pkg_version)."
-    if [ $update_notify -eq 1 ]; then
+    if [ \$update_notify -eq 1 ]; then
       echo "Software update version: \$pkg_version" | mail -s "Software update" "\$mail_to"
     fi
   fi
