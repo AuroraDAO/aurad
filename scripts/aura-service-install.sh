@@ -225,9 +225,9 @@ waitAuradSnapshotSync
 ##wait sync block differences less than 6 blocks
 waitAuradBlockSync
 
+echo "Monitoring started..."
 while :
 do
-  echo "Monitoring started..."
   sysminutes=\$((\$(date +"%-M")))
   
   if [ \$((\$sysminutes % 20)) -eq 0 ]; then
