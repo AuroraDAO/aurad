@@ -44,6 +44,10 @@ if [ "$infuraoption" == "y" ]; then
   aura_start_option="--rpc $infuraurl"
   monitor_services="docker_aurad_1\|docker_mysql_1"
   monitor_services_count=2
+  cat > aura.conf << EOF
+rpc_option=1
+rpc_url="$infuraurl"
+EOF
 else
   monitor_services="docker_aurad_1\|docker_parity_1\|docker_mysql_1"
   monitor_services_count=3
@@ -53,22 +57,30 @@ cat > aura-start.sh << EOF
 #!/bin/bash
 source /home/$username/.nvm/nvm.sh
 
+if [ -f "aura.conf" ]; then
+  source aura.conf
+  echo "Loading aura.conf settings."
+fi
+
 initConfiguration()
 {
   #check interval
-  interval=1
+  [ -z "\$interval" ] && interval=1
   #staking offline count before restart aurad
-  off_restart=3
+  [ -z "\$off_restart" ] && off_restart=3
   #staking offline cooling period after restart aurad
-  off_cool=10
+  [ -z "\$off_cool" ] && off_cool=10
   #send mail on staking offline option
-  sendmail=0
+  [ -z "\$sendmail" ] && sendmail=0
   #send mail on staking offline mail options
-  mail_subject="AURA STAKING OFFLINE."
-  mail_message="AURA STAKING OFFLINE."
-  mail_to="Your@email.com"
+  [ -z "\$mail_subject" ] && mail_subject="AURA STAKING OFFLINE."
+  [ -z "\$mail_message" ] && mail_message="AURA STAKING OFFLINE."
+  [ -z "\$mail_to" ] && mail_to="your@email.com"
   #aurad update notification option
-  update_notify=0
+  [ -z "\$update_notify" ] && update_notify=0
+  #external ethereum node option
+  [ -z "\$rpc_option" ] && rpc_option=0
+  [ -z "\$rpc_url" ] && rpc_url=""
 }
 
 initVariables()
@@ -77,7 +89,45 @@ initVariables()
   off_count=0
   off_count_cool=0
   lastminutes=-1
-  last_pkg_version=""
+  latest_pkg_version=""
+  logs_aurad=""
+  if [ \$rpc_option -eq 1 ] && [ ! -z "\$rpc_url" ]; then
+    services_count=2
+    services_names="docker_aurad_1\|docker_mysql_1"
+  else
+    services_count=3
+    services_names="docker_aurad_1\|docker_parity_1\|docker_mysql_1"
+  fi
+}
+
+fetchAuradLogs()
+{
+  logs_aurad=\$(aura logs -n aurad | tail -n 20)
+}
+
+checkAuradSnapshot()
+{
+  snapshot=\$(echo "\$logs_aurad" | grep 'snapshot' | tail -n 1)
+}
+
+checkAuradProcessingBlock()
+{
+  processingblock=\$(echo "\$logs_aurad" | grep 'Processing blocks' | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
+}
+
+waitAuradSnapshotSync()
+{
+  while :
+  do
+    checkAuradSnapshot
+    if [ -z "$snapshot" ]; then
+      break
+    else
+      echo  "still active"
+    fi
+    sleep 10
+    fetchAuradLogs
+  done
 }
 
 parseEthBlockNumber()
@@ -98,17 +148,14 @@ checkEthBlockNumber()
   return 0
 }
 
-checkAuradProcessingBlock()
-{
-  processingblock=\$(aura logs -n aurad | grep 'Processing blocks' | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
-}
-
 waitAuradBlockSync()
 {
   lastblocknum=0
+  stuck_count=0
   while :
   do
     checkEthBlockNumber
+    fetchAuradLogs
     if [ \$? -eq 0 ]; then
       checkAuradProcessingBlock
       if [ ! -z "\$processingblock" ]; then
@@ -118,49 +165,83 @@ waitAuradBlockSync()
         fi
       fi
     fi
-    if [ \$lastblocknum -eq \$processingblock ]; then
-      echo "Restarting aurad cointainer."
-      docker restart docker_aurad_1
+    if [ ! -z "\$processingblock" ] && [ ! -z "\$lastblocknum" ]  && [ \$lastblocknum -eq \$processingblock ]; then
+      stuck_count=\$((stuck_count+1))
+      if [ \$stuck_count -ge 3 ]; then
+        echo "Aurad container block sync stuck. Restarting aurad cointainer."
+        docker restart docker_aurad_1
+        stuck_count=0
+      fi
+    else
+      stuck_count=0
     fi
     lastblocknum=\$processingblock
-    sleep 20
+    sleep 50
   done
+  #Extra wait time for aurad container to active running
+  sleep 30
 }
 
 checkAuradPackageVersion()
 {
-  pkg_version=\$(npm dist-tag ls @auroradao/aurad-cli | cut -d ' ' -f2)
-  if [ ! -z "\$last_pkg_version" ] && [ "\$last_pkg_version" != "\$pkg_version" ]; then
-    echo "New aurad package available (\$pkg_version)."
+  current_pkg_version=\$(npm ls -g  @auroradao/aurad-cli | grep "@auroradao.aurad-cli" | cut -d '@' -f3 | tr -d '[:space:]')
+  latest_pkg_version=\$(npm dist-tag ls @auroradao/aurad-cli | cut -d ' ' -f2)
+  if [ ! -z "\$latest_pkg_version" ] && [ ! -z "\$current_pkg_version" ] && [ "\$current_pkg_version" != "\$latest_pkg_version" ]; then
+    echo "New aurad package available (\$latest_pkg_version)."
     if [ \$update_notify -eq 1 ]; then
-      echo "Software update version: \$pkg_version" | mail -s "Software update" "\$mail_to"
+      echo "Software update version: \$latest_pkg_version" | mail -s "Software update" "\$mail_to"
     fi
   fi
-  last_pkg_version=\$pkg_version
 }
 
+startAura()
+{
+  if [ \$rpc_option -eq 1 ] && [ ! -z "\$rpc_url" ]; then
+    aura start $aura_start_option
+  else
+    aura start
+  fi
+}
+
+stopAura()
+{
+  aura stop
+}
+
+restartAura()
+{
+  stopAura
+  startAura
+}
+
+#############################################################
+## Main routine area
+#############################################################
 initConfiguration
-checkAuradPackageVersion
-aura start $aura_start_option
 initVariables
+checkAuradPackageVersion
+startAura
+waitAuradSnapshotSync
 ##wait sync block differences less than 6 blocks
 waitAuradBlockSync
 
 while :
 do
+  echo "Monitoring started..."
   sysminutes=\$((\$(date +"%-M")))
   
   if [ \$((\$sysminutes % 20)) -eq 0 ]; then
     checkAuradPackageVersion
   fi
   
-  if [[ \$(docker ps --format "{{.Names}}"  --filter status=running | grep -c "$monitor_services") -lt $monitor_services_count ]]; then
+  if [[ \$(docker ps --format "{{.Names}}"  --filter status=running | grep -c "\$services_names") -lt \$services_count ]]; then
     echo "container not running.."
     exit 1
   else
     if [ \$((\$sysminutes % \$interval)) -eq 0 ] && [ \$lastminutes -ne \$sysminutes ]; then
       lastminutes=\$sysminutes
-      test=\$(aura status | grep "Staking: offline" -c)
+      fetchAuradLogs
+      test=\$(echo "\$logs_aurad" | grep "Staking: offline" -c)
       if [ \$test -eq 1 ]; then
         if [ \$off_count_cool -eq 0 ]; then
           off_count=\$((off_count+1))
@@ -169,8 +250,7 @@ do
             echo "Restarting aura..."
             off_count=0
             off_count_cool=\$off_cool
-            aura stop
-            aura start $aura_start_option
+            restartAura
           fi
         else
           echo "staking offline."
@@ -179,7 +259,7 @@ do
           echo "\$mail_message" | mail -s "\$mail_subject" "\$mail_to"
         fi
       else
-        if [ \$off_count -ge 1 ] && [[ \$(aura status | grep "Staking: online" -c) -eq 1 ]]; then
+        if [ \$off_count -ge 1 ] && [[ \$(echo "\$logs_aurad" | grep "Staking: online" -c) -eq 1 ]]; then
           echo "staking is online..."
         fi
         off_count=0
