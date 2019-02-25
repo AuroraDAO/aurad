@@ -105,14 +105,19 @@ fetchAuradLogs()
   logs_aurad=\$(aura logs -n aurad | tail -n 20)
 }
 
+fetchAuradStatus()
+{
+  logs_aurad=\$(aura status)
+}
+
 checkAuradSnapshot()
 {
-  snapshot=\$(echo "\$logs_aurad" | grep 'snapshot' | tail -n 1)
+  snapshot=\$(grep 'snapshot' <<< \$logs_aurad | tail -n 1)
 }
 
 checkAuradProcessingBlock()
 {
-  processingblock=\$(echo "\$logs_aurad" | grep 'Processing blocks' | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
+  processingblock=\$(grep 'Processing blocks' <<< \$logs_aurad | tail -n 1 | cut -d '|' -f3 | cut -d ' ' -f6)
 }
 
 waitAuradSnapshotSync()
@@ -240,8 +245,8 @@ do
   else
     if [ \$((\$sysminutes % \$interval)) -eq 0 ] && [ \$lastminutes -ne \$sysminutes ]; then
       lastminutes=\$sysminutes
-      fetchAuradLogs
-      test=\$(echo "\$logs_aurad" | grep "Staking: offline" -c)
+      fetchAuradStatus
+      test=\$(grep "Staking: offline" -c <<< \$logs_aurad)
       if [ \$test -eq 1 ]; then
         if [ \$off_count_cool -eq 0 ]; then
           off_count=\$((off_count+1))
@@ -259,7 +264,7 @@ do
           echo "\$mail_message" | mail -s "\$mail_subject" "\$mail_to"
         fi
       else
-        if [ \$off_count -ge 1 ] && [[ \$(echo "\$logs_aurad" | grep "Staking: online" -c) -eq 1 ]]; then
+        if [ \$off_count -ge 1 ] && [[ \$(grep "Staking: online" -c <<< \$logs_aurad) -eq 1 ]]; then
           echo "staking is online..."
         fi
         off_count=0
