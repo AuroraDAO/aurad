@@ -64,7 +64,7 @@ fi
 
 initConfiguration()
 {
-  #check interval
+  #check interval minutes (value range 1-59)
   [ -z "\$interval" ] && interval=1
   #staking offline count before restart aurad
   [ -z "\$off_restart" ] && off_restart=3
@@ -78,9 +78,13 @@ initConfiguration()
   [ -z "\$mail_to" ] && mail_to="your@email.com"
   #aurad update notification option
   [ -z "\$update_notify" ] && update_notify=0
+  #aurad update check interval (value range 1-59)
+  [ -z "\$update_check_interval" ] && update_check_interval=20
   #external ethereum node option
   [ -z "\$rpc_option" ] && rpc_option=0
   [ -z "\$rpc_url" ] && rpc_url=""
+  #statistics logging option
+  [ -z "\$stats_option" ] && stats_option=0
 }
 
 initVariables()
@@ -202,6 +206,44 @@ checkAuradPackageVersion()
   fi
 }
 
+formatJson()
+{
+  echo "\"\$1\":\"\$2\""
+}
+
+logStatistics()
+{
+  stat_interval=\$interval
+  stat_time=\$(date +%Y%m%d%H%M%S)
+  stat_parity_cpu=\$(ps -p \$(pidof parity) -o %cpu --no-headers)
+  stat_aurad_cpu=\$(ps -p \$(pidof node aurad) -o %cpu --no-headers)
+  stat_mysqld_cpu=\$(ps -p \$(pidof mysqld) -o %cpu --no-headers)
+  stat_aura_cpu=\$(ps -p \$$ -o %cpu --no-headers)
+  stat_parity_mem=\$(ps -p \$(pidof parity) -o %mem --no-headers)
+  stat_aurad_mem=\$(ps -p \$(pidof node aurad) -o %mem --no-headers)
+  stat_mysqld_mem=\$(ps -p \$(pidof mysqld) -o %mem --no-headers)
+  stat_aura_mem=\$(ps -p \$$ -o %mem --no-headers)
+  
+  logline="{\$(formatJson "t" \$stat_time)"
+  logline="\$logline,\$(formatJson "i" \$stat_interval)"
+  logline="\$logline,\$(formatJson "s" \$stat_status)"
+  logline="\$logline,\$(formatJson "pc" \$stat_parity_cpu)"
+  logline="\$logline,\$(formatJson "ac" \$stat_aurad_cpu)"
+  logline="\$logline,\$(formatJson "mc" \$stat_mysqld_cpu)"
+  logline="\$logline,\$(formatJson "dc" \$stat_aura_cpu)"
+  logline="\$logline,\$(formatJson "pm" \$stat_parity_mem)"
+  logline="\$logline,\$(formatJson "am" \$stat_aurad_mem)"
+  logline="\$logline,\$(formatJson "mm" \$stat_mysqld_mem)"
+  logline="\$logline,\$(formatJson "dm" \$stat_aura_mem)"
+  logline="\$logline,\$(formatJson "r" \$stat_reason)"
+  logline="\$logline}"
+
+  if [ ! -d "stats" ]; then
+    mkdir "stats"
+  fi
+  cat >> "stats/\${stat_time:0:8}00.txt" <<< "\$logline"
+}
+
 startAura()
 {
   if [ \$rpc_option -eq 1 ] && [ ! -z "\$rpc_url" ]; then
@@ -237,13 +279,15 @@ echo "Monitoring started..."
 while :
 do
   sysminutes=\$((\$(date +"%-M")))
-  
-  if [ \$((\$sysminutes % 20)) -eq 0 ]; then
+
+  if [ \$((\$sysminutes % \$update_check_interval)) -eq 0 ]; then
     checkAuradPackageVersion
   fi
-  
+
   if [[ \$(docker ps --format "{{.Names}}"  --filter status=running | grep -c "\$services_names") -lt \$services_count ]]; then
     echo "container not running.."
+    stat_reason="container not running.."
+    stat_status=0
     exit 1
   else
     if [ \$((\$sysminutes % \$interval)) -eq 0 ] && [ \$lastminutes -ne \$sysminutes ]; then
@@ -262,22 +306,29 @@ do
           fi
         else
           echo "staking offline."
+          stat_reason="offline"
+          stat_status=0
         fi
         if [ \$sendmail -eq 1 ]; then
           echo "\$mail_message" | mail -s "\$mail_subject" "\$mail_to"
         fi
       else
-        if [ \$off_count -ge 1 ] && [[ \$(grep "Staking: online" -c <<< "\$logs_aurad") -eq 1 ]]; then
-          echo "staking is online..."
+        if [[ \$(grep "Staking: online" -c <<< "\$logs_aurad") -eq 1 ]]; then
+          stat_status=1
+          if [ \$off_count -ge 1 ]; then
+            echo "staking is online..."
+          fi
         fi
         off_count=0
       fi
 
       if [ \$off_count_cool -ge 1 ]; then
-        off_count_cool=\$((off_count_cool - 1)) 
+        off_count_cool=\$((off_count_cool - 1))
         echo "Restart cooling period \$((off_cool - off_count_cool)) / \$off_cool."
       fi
-
+      if [ \$stats_option -eq 1 ]; then
+        logStatistics
+      fi
     fi
   fi
   sleep 30;
