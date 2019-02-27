@@ -283,7 +283,7 @@ logStatistics()
 startAura()
 {
   if [ \$rpc_option -eq 1 ] && [ ! -z "\$rpc_url" ]; then
-    aura start $aura_start_option
+    aura start --rpc "\$rpc_url"
   else
     aura start
   fi
