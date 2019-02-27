@@ -215,33 +215,69 @@ logStatistics()
 {
   stat_interval=\$interval
   stat_time=\$(date +%Y%m%d%H%M%S)
-  stat_parity_cpu=\$(ps -p \$(pidof parity) -o %cpu --no-headers)
-  stat_aurad_cpu=\$(ps -p \$(pidof node aurad) -o %cpu --no-headers)
-  stat_mysqld_cpu=\$(ps -p \$(pidof mysqld) -o %cpu --no-headers)
-  stat_aura_cpu=\$(ps -p \$$ -o %cpu --no-headers)
-  stat_parity_mem=\$(ps -p \$(pidof parity) -o %mem --no-headers)
-  stat_aurad_mem=\$(ps -p \$(pidof node aurad) -o %mem --no-headers)
-  stat_mysqld_mem=\$(ps -p \$(pidof mysqld) -o %mem --no-headers)
-  stat_aura_mem=\$(ps -p \$$ -o %mem --no-headers)
+  psout=\$(ps -p \$(pidof parity) -o %cpu,vsz,rss --no-headers)
+  if [ ! -z "\$psout" ]; then
+    stat_parity_cpu=\$(awk -F' ' '{printf "%.2f", \$1}' <<< "\$psout")
+    stat_parity_vmem=\$(awk -F' ' '{printf "%.2f", \$2/1024}' <<< "\$psout")
+    stat_parity_mem=\$(awk -F' ' '{printf "%.2f", \$3/1024}' <<< "\$psout")
+  else
+    stat_parity_cpu=""
+    stat_parity_vmem=""
+    stat_parity_mem=""
+  fi
+  psout=\$(ps -p \$(pidof node aurad) -o %cpu,vsz,rss --no-headers)
+  if [ ! -z "\$psout" ]; then
+    stat_aurad_cpu=\$(awk -F' ' '{printf "%.2f", \$1}' <<< "\$psout")
+    stat_aurad_vmem=\$(awk -F' ' '{printf "%.2f", \$2/1024}' <<< "\$psout")
+    stat_aurad_mem=\$(awk -F' ' '{printf "%.2f", \$3/1024}' <<< "\$psout")
+  else
+    stat_aurad_cpu=""
+    stat_aurad_vmem=""
+    stat_aurad_mem=""
+  fi
+  psout=\$(ps -p \$(pidof mysqld) -o %cpu,vsz,rss --no-headers)
+  if [ ! -z "\$psout" ]; then
+    stat_mysqld_cpu=\$(awk -F' ' '{printf "%.2f", \$1}' <<< "\$psout")
+    stat_mysqld_vmem=\$(awk -F' ' '{printf "%.2f", \$2/1024}' <<< "\$psout")
+    stat_mysqld_mem=\$(awk -F' ' '{printf "%.2f", \$3/1024}' <<< "\$psout")
+  else
+    stat_mysqld_cpu=""
+    stat_mysqld_vmem=""
+    stat_mysqld_mem=""
+  fi
+  psout=\$(ps -p \$$ -o %cpu,vsz,rss --no-headers)
+  if [ ! -z "\$psout" ]; then
+    stat_aura_cpu=\$(awk -F' ' '{printf "%.2f", \$1}' <<< "\$psout")
+    stat_aura_vmem=\$(awk -F' ' '{printf "%.2f", \$2/1024}' <<< "\$psout")
+    stat_aura_mem=\$(awk -F' ' '{printf "%.2f", \$3/1024}' <<< "\$psout")
+  else
+    stat_aura_cpu=""
+    stat_aura_vmem=""
+    stat_aura_mem=""
+  fi
   
   logline="{\$(formatJson "t" \$stat_time)"
   logline="\$logline,\$(formatJson "i" \$stat_interval)"
   logline="\$logline,\$(formatJson "s" \$stat_status)"
   logline="\$logline,\$(formatJson "pc" \$stat_parity_cpu)"
-  logline="\$logline,\$(formatJson "ac" \$stat_aurad_cpu)"
-  logline="\$logline,\$(formatJson "mc" \$stat_mysqld_cpu)"
-  logline="\$logline,\$(formatJson "dc" \$stat_aura_cpu)"
   logline="\$logline,\$(formatJson "pm" \$stat_parity_mem)"
+  logline="\$logline,\$(formatJson "pv" \$stat_parity_vmem)"
+  logline="\$logline,\$(formatJson "ac" \$stat_aurad_cpu)"
   logline="\$logline,\$(formatJson "am" \$stat_aurad_mem)"
+  logline="\$logline,\$(formatJson "av" \$stat_aurad_vmem)"
+  logline="\$logline,\$(formatJson "mc" \$stat_mysqld_cpu)"
   logline="\$logline,\$(formatJson "mm" \$stat_mysqld_mem)"
+  logline="\$logline,\$(formatJson "mv" \$stat_mysqld_mem)"
+  logline="\$logline,\$(formatJson "dc" \$stat_aura_cpu)"
   logline="\$logline,\$(formatJson "dm" \$stat_aura_mem)"
+  logline="\$logline,\$(formatJson "dv" \$stat_aura_vmem)"
   logline="\$logline,\$(formatJson "r" \$stat_reason)"
   logline="\$logline}"
 
   if [ ! -d "stats" ]; then
     mkdir "stats"
   fi
-  cat >> "stats/\${stat_time:0:8}00.txt" <<< "\$logline"
+  cat >> "stats/\${stat_time:0:8}.txt" <<< "\$logline"
 }
 
 startAura()
