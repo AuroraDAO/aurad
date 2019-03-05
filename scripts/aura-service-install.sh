@@ -78,6 +78,8 @@ initConfiguration()
   [ -z "\$mail_to" ] && mail_to="your@email.com"
   #aurad update notification option
   [ -z "\$update_notify" ] && update_notify=0
+  #aurad auto upgrade  option
+  [ -z "\$update_auto" ] && update_auto=0
   #aurad update check interval (value range 1-59)
   [ -z "\$update_check_interval" ] && update_check_interval=20
   #external ethereum node option
@@ -202,6 +204,9 @@ checkAuradPackageVersion()
     if [ \$update_notify -eq 1 ]; then
       echo "Software update version: \$latest_pkg_version" | mail -s "Software update" "\$mail_to"
     fi
+    if [ \$update_auto -eq 1 ]; then
+      updateAura
+    fi
     current_pkg_version=\$(npm ls -g  @auroradao/aurad-cli | grep "@auroradao.aurad-cli" | cut -d '@' -f3 | tr -d '[:space:]')
   fi
 }
@@ -215,7 +220,12 @@ logStatistics()
 {
   stat_interval=\$interval
   stat_time=\$(date +%Y%m%d%H%M%S)
-  psout=\$(ps -p \$(pidof parity) -o %cpu,vsz,rss --no-headers)
+  ppid=\$(pidof parity)
+  if [ ! -z "\$ppid" ]; then
+    psout=\$(ps -p \$ppid -o %cpu,vsz,rss --no-headers)
+  else
+    psout=""
+  fi
   if [ ! -z "\$psout" ]; then
     stat_parity_cpu=\$(awk -F' ' '{printf "%.2f", \$1}' <<< "\$psout")
     stat_parity_vmem=\$(awk -F' ' '{printf "%.2f", \$2/1024}' <<< "\$psout")
@@ -267,7 +277,7 @@ logStatistics()
   logline="\$logline,\$(formatJson "av" \$stat_aurad_vmem)"
   logline="\$logline,\$(formatJson "mc" \$stat_mysqld_cpu)"
   logline="\$logline,\$(formatJson "mm" \$stat_mysqld_mem)"
-  logline="\$logline,\$(formatJson "mv" \$stat_mysqld_mem)"
+  logline="\$logline,\$(formatJson "mv" \$stat_mysqld_vmem)"
   logline="\$logline,\$(formatJson "dc" \$stat_aura_cpu)"
   logline="\$logline,\$(formatJson "dm" \$stat_aura_mem)"
   logline="\$logline,\$(formatJson "dv" \$stat_aura_vmem)"
@@ -297,6 +307,13 @@ stopAura()
 restartAura()
 {
   stopAura
+  startAura
+}
+
+updateAura()
+{
+  stopAura
+  npm install -g @auroradao/aurad-cli
   startAura
 }
 
