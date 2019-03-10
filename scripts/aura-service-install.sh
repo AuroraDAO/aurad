@@ -114,6 +114,20 @@ fetchAuradLogs()
 fetchAuradStatus()
 {
   logs_aurad=\$(aura status)
+  stat_status=""
+  stat_reason=""
+  test=\$(grep "Staking: offline" -c <<< "\$logs_aurad")
+  if [ \$test -eq 1 ]; then
+    stat_status=0
+    stat_reason="offline"
+  fi
+  if [[ \$(grep "Staking: online" -c <<< "\$logs_aurad") -eq 1 ]]; then
+    stat_status=1
+  fi
+  my_period_credit=\$(grep "My Period Credits"  <<< "\$logs_aurad" | awk -F ' ' '{print \$6}')
+  tot_period_credit=\$(grep "My Period Credits"  <<< "\$logs_aurad" | awk -F ' ' '{print \$8}')
+  staked=\$(grep "^Staked AURA"  <<< "\$logs_aurad" | awk -F ' ' '{print \$3}')
+  tot_staked=\$(grep "^Total Staked AURA"  <<< "\$logs_aurad" | awk -F ' ' '{print \$4}')
 }
 
 checkAuradSnapshot()
@@ -281,6 +295,10 @@ logStatistics()
   logline="\$logline,\$(formatJson "dc" \$stat_aura_cpu)"
   logline="\$logline,\$(formatJson "dm" \$stat_aura_mem)"
   logline="\$logline,\$(formatJson "dv" \$stat_aura_vmem)"
+  logline="\$logline,\$(formatJson "cc" \$my_period_credit)"
+  logline="\$logline,\$(formatJson "ct" \$tot_period_credit)"
+  logline="\$logline,\$(formatJson "ss" \$staked)"
+  logline="\$logline,\$(formatJson "st" \$tot_staked)"
   logline="\$logline,\$(formatJson "r" \$stat_reason)"
   logline="\$logline}"
 
@@ -346,8 +364,7 @@ do
     if [ \$((\$sysminutes % \$interval)) -eq 0 ] && [ \$lastminutes -ne \$sysminutes ]; then
       lastminutes=\$sysminutes
       fetchAuradStatus
-      test=\$(grep "Staking: offline" -c <<< "\$logs_aurad")
-      if [ \$test -eq 1 ]; then
+      if [ \$stat_status -eq 0 ]; then
         if [ \$off_count_cool -eq 0 ]; then
           off_count=\$((off_count+1))
           echo "Staking offline. Fail: \$off_count / \$off_restart."
@@ -359,15 +376,12 @@ do
           fi
         else
           echo "staking offline."
-          stat_reason="offline"
-          stat_status=0
         fi
         if [ \$sendmail -eq 1 ]; then
           echo "\$mail_message" | mail -s "\$mail_subject" "\$mail_to"
         fi
       else
-        if [[ \$(grep "Staking: online" -c <<< "\$logs_aurad") -eq 1 ]]; then
-          stat_status=1
+        if [ \$stat_status -eq 1 ]; then
           if [ \$off_count -ge 1 ]; then
             echo "staking is online..."
           fi
