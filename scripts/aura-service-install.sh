@@ -114,6 +114,16 @@ fetchAuradLogs()
 fetchAuradStatus()
 {
   logs_aurad=\$(aura status)
+  if [ -z "\$logs_aurad" ]; then
+    stat_status=""
+    stat_reason=""
+    my_period_credit=""
+    tot_period_credit=""
+    staked=""
+    tot_staked=""
+    echo "Unable to get aura status..."
+    return 1
+  fi
   stat_status=""
   stat_reason=""
   test=\$(grep "Staking: offline" -c <<< "\$logs_aurad")
@@ -128,6 +138,7 @@ fetchAuradStatus()
   tot_period_credit=\$(grep "My Period Credits"  <<< "\$logs_aurad" | awk -F ' ' '{print \$8}')
   staked=\$(grep "^Staked AURA"  <<< "\$logs_aurad" | awk -F ' ' '{print \$3}')
   tot_staked=\$(grep "^Total Staked AURA"  <<< "\$logs_aurad" | awk -F ' ' '{print \$4}')
+  return 0
 }
 
 checkAuradSnapshot()
