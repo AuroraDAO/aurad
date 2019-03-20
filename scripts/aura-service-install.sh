@@ -4,7 +4,7 @@
 #########################################
 
 read -p "Enter aura service account: " username
-getent passwd $username > /dev/null 2&>1
+getent passwd $username > /dev/null 2>&1
 if [ $? -ne 0 ]
 then
   echo "Invalid username"
@@ -56,10 +56,29 @@ fi
 cat > aura-start.sh << EOF
 #!/bin/bash
 source /home/$username/.nvm/nvm.sh
+DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ -f "aura.conf" ]; then
-  source aura.conf
+printConfiguration()
+{
+  echo "interval=\$interval"
+  echo "off_restart=\$off_restart"
+  echo "off_cool=\$off_cool"
+  echo "sendmail=\$sendmail"
+  echo "mail_subject=\$mail_subject"
+  echo "mail_message=\$mail_message"
+  echo "mail_to=\$mail_to"
+  echo "update_notify=\$update_notify"
+  echo "update_auto=\$update_auto"
+  echo "update_check_interval=\$update_check_interval"
+  echo "rpc_option=\$rpc_option"
+  echo "rpc_url=\$rpc_url"
+  echo "stats_option=\$stats_option"
+}
+
+if [ -f "\${DIR}/aura.conf" ]; then
+  source "\${DIR}/aura.conf"
   echo "Loading aura.conf settings."
+  printConfiguration
 fi
 
 initConfiguration()
@@ -313,10 +332,10 @@ logStatistics()
   logline="\$logline,\$(formatJson "r" \$stat_reason)"
   logline="\$logline}"
 
-  if [ ! -d "stats" ]; then
-    mkdir "stats"
+  if [ ! -d "\${DIR}/stats" ]; then
+    mkdir "\${DIR}/stats"
   fi
-  cat >> "stats/\${stat_time:0:8}.txt" <<< "\$logline"
+  cat >> "\${DIR}/stats/\${stat_time:0:8}.txt" <<< "\$logline"
 }
 
 startAura()
