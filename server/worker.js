@@ -282,13 +282,19 @@ class Worker extends EventEmitter {
 
   async getTransactions() {
     this._running = true;
-
-    await this.resetStatus();
-    await this.rpcSync();
-
+    
+    let maxBlock;
+    while (!maxBlock) {
+      try {
+        await this.resetStatus();
+        await this.rpcSync();
+        maxBlock = await web3.eth.getBlockNumber() - BLOCK_DELAY;
+      } catch(e) {
+        printit('Error getting RPC status, retry in 5 seconds');
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
     const { chunkSize } = this;
-    let maxBlock = await web3.eth.getBlockNumber() - BLOCK_DELAY;
-
     let startBlock = 0; let didWarp = false;
     const skipTo = maxBlock - (maxBlock % SNAPSHOT_SIZE);
     [startBlock, didWarp] = await this.warpSync(maxBlock, skipTo);
