@@ -1,3 +1,9 @@
+# Notice
+
+**IDEXd is the [official successor](https://idex.market/staking) of AuraD and provides the same functionality and services based on the IDEX token. AuraD is no longer supported. Please [visit our new repo](https://github.com/idexio/idexd) for instructions on upgrading from AuraD to IDEXd.**
+
+-----
+
 # AuraD: IDEX Staking Tier 3 [beta]
 
 ## Introduction
